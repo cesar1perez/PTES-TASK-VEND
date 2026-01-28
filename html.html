@@ -2,233 +2,330 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Llanterama Tulancingo - Sistema de Inteligencia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard Poza Rica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
-        body { font-family: 'Outfit', sans-serif; background-color: #f1f5f9; }
-        .bg-llanterama { background: radial-gradient(circle at top, #002d5a 0%, #001f3f 100%); }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .card-current { background: #fefce8; border: 2px solid #eab308 !important; }
-        .shadow-pro { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }
-        .linea-pro { border-left: 8px solid #003366; } .linea-lub { border-left: 8px solid #f97316; }
-        .linea-moto { border-left: 8px solid #ef4444; } .linea-filt { border-left: 8px solid #22c55e; }
-        .linea-alc { border-left: 8px solid #8b5cf6; } .linea-rec { border-left: 8px solid #94a3b8; }
-        .fade-in { animation: fadeIn 0.8s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Colores especiales para zonas enumeradas */
-        .zona-badge { background: #eab308; color: #001f3f; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: 900; font-style: italic; margin-right: 12px; }
+        body { font-family: 'JetBrains Mono', monospace; background-color: #f8fafc; color: #0f172a; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .yellow-glow { text-shadow: 0 0 10px rgba(250, 204, 21, 0.5); }
+        .glass-btn { transition: all 0.2s ease; cursor: pointer; }
+        .glass-btn:active { transform: scale(0.96); }
+        .consolidado-premium { background: linear-gradient(135deg, #001529 0%, #002d54 100%); border: 1px solid rgba(250, 204, 21, 0.3); }
+        .pdf-card { border-radius: 20px; background: white; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .zona-badge { background: #001529; color: #facc15; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 900; font-size: 12px; }
+        .color-zona-0 { border-left-color: #2563eb !important; }
+        .color-zona-1 { border-left-color: #16a34a !important; }
+        .color-zona-2 { border-left-color: #ea580c !important; }
+        .color-zona-3 { border-left-color: #9333ea !important; }
+        .dropdown-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out; }
+        .dropdown-active .dropdown-content { max-height: 8000px; padding-top: 20px; overflow: visible; }
     </style>
 </head>
 <body>
 
-    <div id="loader" class="fixed inset-0 bg-llanterama z-50 flex flex-col items-center justify-center text-white text-center p-6">
-        <div class="w-10 h-10 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p id="loader-text" class="text-[9px] font-bold tracking-[0.3em] uppercase opacity-50 italic underline">Conectando Llanterama</p>
-        <button id="retry-btn" onclick="location.reload()" class="hidden mt-4 bg-yellow-500 text-blue-900 px-6 py-2 rounded-full text-xs font-black uppercase">Reintentar</button>
+    <div id="loader" class="fixed inset-0 bg-[#001529] z-[100] flex flex-col items-center justify-center text-white">
+        <div class="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-[10px] font-black tracking-widest uppercase">Sincronizando Poza Rica...</p>
     </div>
 
-    <div id="view-cover" class="fixed inset-0 bg-llanterama z-40 flex flex-col items-center justify-center text-center p-8 overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-            <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]"></div>
-            <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-yellow-500 rounded-full blur-[120px]"></div>
-        </div>
-        <div class="relative z-10 fade-in">
-            <div class="mb-2">
-                <span class="text-yellow-400 font-black tracking-[0.4em] uppercase text-[10px]">Bienvenido a</span>
-            </div>
-            <h1 class="text-6xl font-black text-white italic tracking-tighter leading-none mb-2 uppercase">LLANTERAMA</h1>
-            <p class="text-yellow-500 font-bold tracking-widest text-xs mb-8 uppercase">Tulancingo • Inteligencia Comercial</p>
-            
-            <div class="glass px-6 py-4 rounded-2xl mb-12 max-w-xs mx-auto text-center">
-                <p class="text-[11px] text-blue-100 font-medium leading-relaxed opacity-80">
-                    Acceso restringido para personal autorizado.
-                </p>
-            </div>
-            <button onclick="enterApp()" class="group bg-white text-blue-950 font-black px-16 py-4 rounded-full shadow-2xl uppercase tracking-widest text-xs transition-all hover:bg-yellow-400 active:scale-95">
-                Entrar al Sistema <i class="fas fa-chevron-right ml-2"></i>
-            </button>
-        </div>
-    </div>
-
-    <header id="main-header" class="bg-llanterama text-white p-5 sticky top-0 z-30 shadow-xl border-b-4 border-yellow-500 hidden">
-        <div class="max-w-md mx-auto flex justify-between items-center">
-            <div onclick="location.reload()" class="cursor-pointer">
-                <h1 class="text-xl font-black italic leading-none uppercase">Llanterama</h1>
-                <p class="text-[8px] font-bold text-yellow-400 tracking-widest uppercase">Panel de Control</p>
-            </div>
-            <button onclick="renderAnalytics()" class="bg-white/10 p-2 rounded-xl border border-white/20 text-yellow-400">
-                <i class="fas fa-chart-line"></i>
-            </button>
+    <header id="main-header" class="hidden bg-[#001529] text-white sticky top-0 z-40 border-b-2 border-yellow-400 shadow-xl">
+        <div class="max-w-xl mx-auto p-4 flex justify-between items-center">
+            <h2 class="font-black italic uppercase text-sm tracking-tighter yellow-glow font-orbitron">DASHBOARD POZA RICA</h2>
+            <p id="update-tag" class="text-[8px] text-yellow-500 font-bold uppercase"></p>
         </div>
     </header>
 
-    <main class="max-w-md mx-auto p-4 pb-24">
-        <div id="content-area" class="space-y-4"></div>
-    </main>
+    <div id="view-cover" class="fixed inset-0 bg-[#001529] z-50 flex flex-col items-center justify-center text-center p-6 text-white">
+        <h1 class="text-5xl font-black italic mb-2 yellow-glow font-orbitron leading-tight">DASHBOARD POZA RICA</h1>
+        <p class="text-yellow-400 text-[9px] tracking-[0.4em] mb-12 uppercase font-bold">Unidad de Inteligencia Comercial</p>
+        
+        <div class="flex flex-col gap-4 w-full max-w-xs">
+            <button onclick="checkAccess('DIRECTIVO')" class="glass-btn bg-yellow-400 text-blue-950 font-black px-6 py-5 rounded-2xl text-[10px] tracking-widest uppercase shadow-2xl">
+                Acceso Directivo / Gerencia
+            </button>
+            <button onclick="showVendedoresList()" class="glass-btn border-2 border-yellow-400 text-yellow-400 font-black px-6 py-5 rounded-2xl text-[10px] tracking-widest uppercase shadow-2xl">
+                Acceso Vendedores
+            </button>
+        </div>
+    </div>
+
+    <main class="max-w-xl mx-auto p-4 pb-24"><div id="content-area"></div></main>
 
     <script>
-        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRA2Ijt1TI5_APzSJNjdlGF1_Jex0-n3iTiy8R996VR6PNx6V7tM8xO8u3sFKwp2A/pub?gid=1217270027&single=true&output=csv';
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQUv_5jyAb0_Hdvs5nBLsDbr-9FME__6Y7HS1Fz7QAU8Kdm1v13rQfLWbDgoLxjRiiX82F4K2hFsv6O/pub?gid=97082076&single=true&output=csv';
+        
         let db = [];
+        let userRole = ''; // 'DIRECTIVO' o 'VENDEDOR'
+        let currentUser = '';
         const mesesRef = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+
+        // Configuración de contraseñas de vendedores (Personalízalas aquí)
+        const vPasswords = {
+            "JOSUE JIMAREZ ROCHA": "PR2401",
+            "VENTAS EMPRESARIAL YURIDIA A.": "PR2402",
+            "CUENTAS ESPECIALES": "PR2403",
+            "ISRAEL ABISAID CRUZ GOMEZ": "PR2404",
+            "DANIEL LIRA AZUARA": "PR2405",
+            "ROMAN RAMSES CASTILLO": "PR2406"
+        };
+
+        const cats = [
+            {n:'Acumuladores Totales', o:'OBJ ACUM', r:'REAL ACUM', color: '#0f172a'},
+            {n:'Premium', o:'OBJ PREMIUM', r:'REAL PREMIUM', color: '#1e3a8a'},
+            {n:'AGM', o:'OBJ AGM', r:'REAL AGM', color: '#1d4ed8'},
+            {n:'Estándar', o:'OBJ ESTANDAR', r:'REAL ESTANDAR', color: '#3b82f6'},
+            {n:'Motobaterías', o:'OBJ MOTO', r:'REAL MOTO', color: '#ef4444'},
+            {n:'Lubricantes', o:'OBJ LUB', r:'REAL LUB', color: '#f97316'},
+            {n:'Filtros', o:'OBJ FILTRO', r:'REAL FILTRO', color: '#16a34a'},
+            {n:'Alcalinas', o:'OBJ ALCALINA', r:'REAL ALCALINA', color: '#9333ea'},
+            {n:'Recolección', o:'OBJ RECOLECCION', r:'REAL RECOLECCION', color: '#64748b'},
+            {n:'Llantas Auto', o:'OBJ AUTO', r:'REAL AUTO', color: '#f59e0b'},
+            {n:'Llantas Camioneta', o:'OBJ CAMIONETA', r:'REAL CAMIONETA', color: '#d97706'},
+            {n:'Llantas Camión', o:'OBJ CAMION', r:'REAL CAMION', color: '#92400e'}
+        ];
 
         async function start() {
             try {
-                const response = await fetch(CSV_URL + '&cb=' + Date.now());
+                const response = await fetch(CSV_URL + '&t=' + Date.now());
                 const text = await response.text();
-                Papa.parse(text, {
-                    header: true, skipEmptyLines: true,
-                    complete: (results) => {
-                        db = results.data.filter(r => r.MES && r.AÑO);
-                        document.getElementById('loader').classList.add('hidden');
+                Papa.parse(text, { 
+                    header: true, 
+                    skipEmptyLines: true,
+                    transformHeader: (h) => h.trim().toUpperCase(), 
+                    complete: (res) => { 
+                        db = res.data.filter(r => r.MES && r.AÑO && n(r.IMPORTE) > 0); 
+                        document.getElementById('update-tag').innerText = `LIVE: ${new Date().toLocaleTimeString()}`;
+                        document.getElementById('loader').classList.add('hidden'); 
                     }
                 });
-            } catch (e) { document.getElementById('retry-btn').classList.remove('hidden'); }
+            } catch (e) { alert("Error de Sincronización."); }
         }
 
-        function enterApp() {
-            document.getElementById('view-cover').classList.add('hidden');
-            document.getElementById('main-header').classList.remove('hidden');
-            renderPeriods();
+        function checkAccess(role) {
+            if(role === 'DIRECTIVO') {
+                const pass = prompt("Ingrese Contraseña de Gerencia:");
+                if(pass === "Llanterama2426") {
+                    userRole = 'DIRECTIVO';
+                    enterApp();
+                } else { alert("Acceso Denegado"); }
+            }
+        }
+
+        function showVendedoresList() {
+            const list = Object.keys(vPasswords);
+            let html = `
+                <div class="fixed inset-0 bg-[#001529] z-[60] p-6 overflow-y-auto">
+                    <button onclick="location.reload()" class="mb-8 text-white text-[10px] font-black uppercase tracking-widest">← VOLVER</button>
+                    <h2 class="text-yellow-400 font-orbitron text-xl mb-6 yellow-glow">SELECCIONE VENDEDOR</h2>
+                    <div class="space-y-3">
+                        ${list.map(v => `
+                            <div onclick="accessVendedor('${v}')" class="bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-bold text-xs uppercase tracking-tight glass-btn">
+                                ${v}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', `<div id="v-list">${html}</div>`);
+        }
+
+        function accessVendedor(v) {
+            const pass = prompt(`Ingrese contraseña para ${v}:`);
+            if(pass === vPasswords[v]) {
+                userRole = 'VENDEDOR';
+                currentUser = v;
+                document.getElementById('v-list').remove();
+                enterApp();
+            } else { alert("Contraseña incorrecta"); }
+        }
+
+        function enterApp() { 
+            document.getElementById('view-cover').classList.add('hidden'); 
+            document.getElementById('main-header').classList.remove('hidden'); 
+            renderPeriods(); 
         }
 
         function renderPeriods() {
-            const sortedPeriods = [...new Set(db.map(r => `${r.MES} ${r.AÑO}`))].sort((a, b) => {
-                const [mesA, anoA] = a.split(' '), [mesB, anoB] = b.split(' ');
-                return anoA !== anoB ? anoB - anoA : mesesRef.indexOf(mesB) - mesesRef.indexOf(mesA);
+            let filteredDb = userRole === 'DIRECTIVO' ? db : db.filter(r => r.VENDEDOR === currentUser);
+            
+            const periodos = [...new Set(filteredDb.map(r => `${r.MES.toUpperCase()} ${r.AÑO}`))].sort((a,b) => {
+                const [mA, aA] = a.split(' '), [mB, aB] = b.split(' ');
+                return aA !== aB ? aB - aA : mesesRef.indexOf(mB) - mesesRef.indexOf(mA);
             });
-            let html = `<h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 ml-2">Seleccione Periodo</h2>`;
-            sortedPeriods.forEach((p, idx) => {
-                const isCurrent = idx === 0;
-                html += `<button onclick="selectMonth('${p}')" class="w-full bg-white p-5 rounded-2xl shadow-pro flex justify-between items-center mb-3 ${isCurrent ? 'card-current' : ''} fade-in text-left border-l-4 border-blue-900">
-                    <div><p class="font-black text-blue-900 uppercase italic text-lg tracking-tighter">${p}</p></div>
-                    <i class="fas fa-chevron-right text-slate-200"></i></button>`;
+
+            let html = `<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Periodos Disponibles</p>`;
+            
+            periodos.forEach((p, i) => {
+                const isAct = (i === 0);
+                html += `<div onclick="selectMonth('${p}')" class="glass-btn p-6 rounded-3xl mb-4 flex justify-between items-center shadow-sm border ${isAct ? 'bg-yellow-400 border-blue-950' : 'bg-white border-slate-200'}">
+                    <h4 class="text-xl font-black text-blue-950 uppercase italic font-orbitron">${p}</h4>
+                    <i class="fas fa-chevron-right text-blue-900/30"></i>
+                </div>`;
             });
             document.getElementById('content-area').innerHTML = html;
         }
 
-        function selectMonth(p) {
-            const [m, a] = p.split(' ');
-            renderZones(db.filter(r => r.MES === m && r.AÑO === a), p);
+        function selectMonth(p) { 
+            const [m, a] = p.split(' '); 
+            const monthData = db.filter(r => r.MES.toUpperCase() === m && r.AÑO == a);
+            
+            if(userRole === 'DIRECTIVO') {
+                renderZones(monthData, p); 
+            } else {
+                renderReport(currentUser, p);
+            }
         }
 
-        // ZONAS ENUMERADAS Y SIN UTILIDAD
+        function toggleDropdown(id) { 
+            const el = document.getElementById(id);
+            if(el) el.classList.toggle('dropdown-active');
+        }
+
         function renderZones(data, period) {
-            const zones = [...new Set(data.map(r => r.ZONA))];
-            let html = `<button onclick="renderPeriods()" class="text-blue-900 font-black text-[10px] mb-6 uppercase flex items-center"><i class="fas fa-arrow-left mr-2"></i> Regresar</button>
-                        <h2 class="text-2xl font-black text-slate-800 mb-6 uppercase italic">${period}</h2>`;
-            zones.forEach((z, index) => {
-                const rows = data.filter(r => r.ZONA === z);
-                let imp = rows.reduce((acc, r) => acc + n(r['IMPORTE NETO']), 0);
-                html += `<div onclick="renderSellers('${z}', '${period}')" class="bg-white rounded-3xl p-6 shadow-pro mb-4 cursor-pointer active:scale-95 transition-all border-r-4 border-yellow-500">
-                    <div class="flex items-center mb-4">
-                        <div class="zona-badge">${index + 1}</div>
-                        <span class="text-2xl font-black text-blue-950 italic uppercase tracking-tighter">${z}</span>
+            const zones = [...new Set(data.map(r => r.ZONA || 'SIN ZONA'))];
+            const totalGral = data.reduce((acc, r) => acc + n(r.IMPORTE), 0);
+
+            let html = `
+                <button onclick="renderPeriods()" class="glass-btn mb-6 text-[10px] font-black text-blue-900 bg-white px-6 py-2 rounded-full border shadow-sm uppercase">← VOLVER AL MENÚ</button>
+                <div id="consolidado-main" class="glass-btn consolidado-premium p-8 rounded-[2.5rem] mb-8 text-white shadow-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-yellow-400 text-[10px] font-black uppercase tracking-widest font-orbitron">RESULTADO CONSOLIDADO</span>
+                        <div class="flex gap-2">
+                            <button onclick="event.stopPropagation(); toggleDropdown('consolidado-main')" class="bg-white/10 w-10 h-10 rounded-lg flex items-center justify-center"><i class="fas fa-chevron-down text-sm"></i></button>
+                            <button onclick="event.stopPropagation(); renderGeneralConsolidated('${period}')" class="bg-white/10 w-10 h-10 rounded-lg flex items-center justify-center"><i class="fas fa-expand text-sm"></i></button>
+                        </div>
                     </div>
-                    <div class="border-t pt-4 border-slate-50">
-                        <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Venta Total Zona</p>
-                        <p class="text-xl font-black text-blue-900">$${f(imp)}</p>
-                    </div></div>`;
+                    <p class="font-black font-orbitron text-4xl yellow-glow tracking-tighter">$${f(totalGral)}</p>
+                    <div class="dropdown-content">
+                        ${cats.map(c => renderProgressItem(data, c)).join('')}
+                    </div>
+                </div>
+            `;
+
+            zones.forEach((z, i) => {
+                const dZ = data.filter(r => (r.ZONA || 'SIN ZONA') === z);
+                const realZ = dZ.reduce((acc, r) => acc + n(r.IMPORTE), 0);
+                html += `
+                <div id="zona-card-${i}" class="bg-white p-6 rounded-[2rem] mb-5 shadow-lg border border-slate-100 border-l-[12px] color-zona-${i % 4}">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="zona-badge">#${i+1}</span>
+                            <h4 class="text-2xl font-black text-blue-950 italic uppercase font-orbitron tracking-tighter">${z}</h4>
+                        </div>
+                        <div class="flex gap-2">
+                             <button onclick="toggleDropdown('zona-card-${i}')" class="bg-slate-100 w-12 h-12 rounded-xl text-blue-900 flex items-center justify-center"><i class="fas fa-chevron-down text-lg"></i></button>
+                             <button onclick="renderSellers('${z}', '${period}')" class="bg-blue-950 w-12 h-12 rounded-xl text-white flex items-center justify-center"><i class="fas fa-arrow-right text-lg"></i></button>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                         <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Total Zona</p>
+                         <p class="text-3xl font-black text-blue-900">$${f(realZ)}</p>
+                    </div>
+                    <div class="dropdown-content">
+                        ${cats.map(c => renderProgressItem(dZ, c)).join('')}
+                    </div>
+                </div>`;
             });
             document.getElementById('content-area').innerHTML = html;
+        }
+
+        function renderProgressItem(dataArr, c) {
+            const obj = sum(dataArr, c.o);
+            const real = sum(dataArr, c.r);
+            const perc = obj > 0 ? (real / obj) * 100 : (real > 0 ? 100 : 0);
+            const falta = obj - real;
+
+            return `
+            <div class="pdf-card !shadow-none !border-slate-100 !mb-4">
+                <div class="flex justify-between items-start mb-4">
+                    <h4 class="text-base font-extrabold italic uppercase text-blue-950 leading-tight w-2/3">${c.n}</h4>
+                    <div class="bg-blue-950 text-yellow-400 px-3 py-1.5 rounded-xl font-black text-sm shadow-md">${Math.round(perc)}%</div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-100 p-3 rounded-xl text-center">
+                        <p class="text-[9px] font-black text-slate-500 uppercase">Vendido</p>
+                        <p class="text-2xl font-black text-blue-950">${real}</p>
+                    </div>
+                    <div class="bg-blue-950 p-3 rounded-xl text-center">
+                        <p class="text-[9px] font-black text-yellow-500 uppercase">Meta</p>
+                        <p class="text-2xl font-black text-yellow-400">${obj}</p>
+                    </div>
+                </div>
+                <div class="h-3 bg-slate-200 rounded-full overflow-hidden mb-3">
+                    <div style="width: ${Math.min(perc, 100)}%; background: ${c.color}" class="h-full rounded-full"></div>
+                </div>
+                <div class="text-center">
+                    ${obj > 0 ? (falta > 0 ? 
+                        `<p class="text-xs font-black text-red-500 italic uppercase tracking-tighter">Faltan ${falta} pz para la meta</p>` : 
+                        `<p class="text-xs font-black text-green-600 italic uppercase tracking-tighter">¡Meta Superada!</p>`) : ''
+                    }
+                </div>
+            </div>`;
+        }
+
+        function renderGeneralConsolidated(period) {
+            const [m, a] = period.split(' ');
+            const d = db.filter(r => r.MES.toUpperCase() === m && r.AÑO == a);
+            renderDetailedReport("POZA RICA GLOBAL", period, d, d.reduce((acc, r) => acc + n(r.IMPORTE), 0), true);
         }
 
         function renderSellers(z, period) {
             const [m, a] = period.split(' ');
-            const sellers = db.filter(r => r.ZONA === z && r.MES === m && r.AÑO === a);
-            let html = `<button onclick="selectMonth('${period}')" class="text-blue-900 font-black text-[10px] mb-6 uppercase flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver a Zonas</button>`;
+            const sellers = db.filter(r => (r.ZONA || 'SIN ZONA') === z && r.MES.toUpperCase() === m && r.AÑO == a);
+            let html = `<button onclick="selectMonth('${period}')" class="glass-btn mb-6 text-[10px] font-black text-blue-900 bg-white px-6 py-2 rounded-full border shadow-sm uppercase">← VOLVER A ZONAS</button>`;
             sellers.forEach(s => {
-                html += `<button onclick="renderReport('${s.VENDEDOR}', '${period}')" class="w-full bg-white p-5 rounded-2xl shadow-pro flex items-center justify-between border-l-8 border-blue-900 mb-3 text-left">
-                    <p class="font-black text-slate-800 uppercase text-sm italic">${s.VENDEDOR}</p><i class="fas fa-chevron-right text-slate-200"></i></button>`;
+                html += `<div onclick="renderReport('${s.VENDEDOR}', '${period}')" class="glass-btn bg-white p-5 rounded-2xl mb-3 flex justify-between items-center border-l-8 border-blue-950 shadow-md">
+                    <p class="font-black text-blue-950 uppercase text-sm italic tracking-tight">${s.VENDEDOR}</p>
+                    <i class="fas fa-chevron-right text-slate-300"></i>
+                </div>`;
             });
             document.getElementById('content-area').innerHTML = html;
         }
 
-        // REPORTE CON METAS RESALTADAS Y SIN UTILIDAD
         function renderReport(v, period) {
             const [m, a] = period.split(' ');
-            const d = db.find(r => r.VENDEDOR === v && r.MES === m && r.AÑO === a);
-            if (!d) return;
+            const d = db.find(r => r.VENDEDOR === v && r.MES.toUpperCase() === m && r.AÑO == a);
+            renderDetailedReport(v, period, [d], n(d.IMPORTE), false, d.ZONA || 'SIN ZONA');
+        }
 
-            const cats = [
-                {n:'Premium', o:'OBJ PREMIUM', r:'REAL PREMIUM', c:'linea-pro'},
-                {n:'AGM', o:'OBJ AGM', r:'REAL AGM', c:'linea-pro'},
-                {n:'Estándar', o:'OBJ ESTANDAR', r:'REAL ESTANDAR', c:'linea-pro'},
-                {n:'Acumuladores', o:'OBJ ACUMULADORES', r:'REAL ACUMULADORES', c:'linea-pro'},
-                {n:'Lubricantes', o:'OBJ LUBRICANTES', r:'REAL LUBRICANTES', c:'linea-lub'},
-                {n:'Motobaterías', o:'OBJ MOTOBATERIAS', r:'REAL MOTOBATERIAS', c:'linea-moto'},
-                {n:'Filtros', o:'OBJ FILTROS', r:'REAL FILTROS', c:'linea-filt'},
-                {n:'Alcalinas', o:'OBJ ALCALINAS', r:'REAL ALCALINA', c:'linea-alc'},
-                {n:'Recolecciones', o:'OBJ RECOLECCIONES', r:'REAL RECOLECCIONES', c:'linea-rec'}
-            ];
-
-            let html = `<button onclick="renderSellers('${d.ZONA}', '${period}')" class="text-blue-900 font-black text-[10px] mb-6 uppercase flex items-center"><i class="fas fa-chevron-left mr-2"></i> Volver</button>
-                <div class="bg-llanterama p-8 rounded-[2rem] text-white shadow-2xl mb-8 border-b-8 border-yellow-500">
-                    <p class="text-[9px] font-bold text-yellow-400 uppercase tracking-widest mb-1">${period} | ${d.ZONA}</p>
-                    <h3 class="text-3xl font-black mb-4 uppercase italic tracking-tighter leading-tight">${d.VENDEDOR}</h3>
-                    <div class="bg-white/10 p-4 rounded-2xl text-center">
-                        <p class="text-[9px] uppercase font-bold text-blue-200 tracking-widest">Importe Total Mensual</p>
-                        <p class="text-3xl font-black text-yellow-400">$${f(n(d['IMPORTE NETO']))}</p>
+        function renderDetailedReport(titulo, period, dataArr, totalImporte, isGlobal, zonaNombre = "") {
+            let backAction = isGlobal ? `selectMonth('${period}')` : (userRole === 'DIRECTIVO' ? `renderSellers('${zonaNombre}', '${period}')` : `renderPeriods()`);
+            
+            let html = `
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="${backAction}" class="text-[10px] font-black text-slate-500 uppercase">← REGRESAR</button>
+                <button onclick="downloadPDF('${titulo}')" class="bg-blue-900 text-yellow-400 px-5 py-2 rounded-xl text-[10px] font-black shadow-lg uppercase tracking-widest">Descargar PDF</button>
+            </div>
+            <div id="pdf-container">
+                <div class="bg-[#001529] p-8 rounded-t-[2.5rem] text-center border-b-4 border-yellow-400">
+                    <p class="text-yellow-400 font-black text-[10px] uppercase tracking-[0.3em] mb-3">${period} ${isGlobal ? '' : '| ' + zonaNombre}</p>
+                    <h2 class="text-3xl font-black italic uppercase text-white font-orbitron leading-none mb-6">${titulo}</h2>
+                    <div class="bg-white/10 p-5 rounded-3xl border border-white/5 shadow-inner">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Importe Total Facturado</p>
+                        <p class="text-4xl font-black text-white tracking-tighter">$${f(totalImporte)}</p>
                     </div>
-                </div><div class="space-y-5">`;
-
-            cats.forEach(c => {
-                let obj = n(d[c.o]);
-                let real = n(d[c.r]);
-                let perc = obj > 0 ? (real / obj) * 100 : (real > 0 ? 100 : 0);
-                let falta = obj - real;
-
-                html += `
-                <div class="bg-white p-6 rounded-3xl shadow-pro ${c.c} fade-in border-r-2 border-slate-100">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <span class="font-black text-blue-900 uppercase text-[11px] italic mb-1 block tracking-wider">${c.n}</span>
-                            <span class="text-4xl font-black ${perc >= 100 ? 'text-green-500' : 'text-blue-950'} leading-none tracking-tighter">${Math.round(perc)}%</span>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase">Meta del Mes</p>
-                            <p class="text-2xl font-black text-blue-700 leading-none">${Math.round(obj)}</p>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden mb-2">
-                        <div class="h-full transition-all duration-1000 ${perc >= 100 ? 'bg-green-500' : 'bg-blue-600'}" style="width:${Math.min(perc, 100)}%"></div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-black uppercase text-slate-400">Vendido: ${Math.round(real)}</span>
-                        ${falta > 0 ? `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase italic">Faltan: ${Math.round(falta)}</span>` 
-                        : `<span class="bg-green-100 text-green-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase italic">¡Logrado!</span>`}
-                    </div>
-                </div>`;
-            });
-            document.getElementById('content-area').innerHTML = html + `</div>`;
+                </div>
+                <div class="bg-slate-50 p-4 space-y-4 rounded-b-[2.5rem]">
+                    ${cats.map(c => renderProgressItem(dataArr, c)).join('')}
+                    <p class="text-center text-[10px] font-bold text-slate-400 uppercase mt-8 pb-10 tracking-[0.4em]">Fin del Informe Poza Rica</p>
+                </div>
+            </div>`;
+            document.getElementById('content-area').innerHTML = html;
             window.scrollTo(0,0);
         }
 
-        function renderAnalytics() {
-            let html = `<button onclick="renderPeriods()" class="text-blue-900 font-black text-[10px] mb-6 uppercase flex items-center"><i class="fas fa-arrow-left mr-2"></i> Salir</button>
-                <div class="bg-white p-6 rounded-[2rem] shadow-pro mb-6 text-center">
-                    <p class="text-[10px] font-black text-blue-900 uppercase mb-4 italic tracking-widest">Ventas Totales ($)</p>
-                    <div style="height:250px"><canvas id="lineChart"></canvas></div>
-                </div>`;
-            document.getElementById('content-area').innerHTML = html;
-            const anos = [...new Set(db.map(r => r.AÑO))].sort();
-            const datasetsLine = anos.map((ano, i) => ({
-                label: `Ventas ${ano}`,
-                data: mesesRef.map(m => db.filter(r => r.MES === m && r.AÑO === ano).reduce((acc, r) => acc + n(r['IMPORTE NETO']), 0)),
-                borderColor: i === 0 ? '#94a3b8' : '#003366',
-                backgroundColor: i === 0 ? '#94a3b811' : '#00336611',
-                fill: true, tension: 0.4
-            }));
-            new Chart(document.getElementById('lineChart'), { type:'line', data:{labels:mesesRef.map(m=>m.substring(0,3)), datasets:datasetsLine}, options:{responsive:true, maintainAspectRatio:false}});
+        function sum(dataArr, field) { if(!field) return 0; return dataArr.reduce((acc, r) => acc + Math.round(n(r[field])), 0); }
+        function downloadPDF(nombre) { 
+            const element = document.getElementById('pdf-container');
+            html2pdf().set({ margin: [10, 5, 10, 5], filename: `PR_${nombre}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4' } }).from(element).save();
         }
-
         function n(v) { return parseFloat(String(v || "0").replace(/[^0-9.-]+/g,"")) || 0; }
         function f(v) { return Math.round(v).toLocaleString('es-MX'); }
+        
         start();
     </script>
 </body>
