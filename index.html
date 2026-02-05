@@ -2,92 +2,116 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel de Control - Junta Semanal</title>
+    <title>Bitácora de Juntas y Vendedores</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        :root { --pnd: #f39c12; --ok: #27ae60; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); padding: 20px; color: #333; }
-        h1 { text-align: center; color: #1a3a5a; font-size: 1.8rem; text-transform: uppercase; margin-bottom: 30px; }
+        :root { --pendiente: #e67e22; --listo: #27ae60; --azul: #2980b9; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; margin: 0; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 3px solid var(--azul); padding-bottom: 10px; }
+        h1 { margin: 0; color: #2c3e50; font-size: 1.5rem; }
+        .btn-refresh { background: var(--azul); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-refresh:hover { background: #1a5a80; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; border-top: 5px solid #3498db; }
-        .card h2 { background: #f8f9fa; margin: 0; padding: 15px; font-size: 1rem; color: #2c3e50; border-bottom: 1px solid #eee; text-align: center; }
-        .list { padding: 15px; min-height: 100px; }
-        .item { padding: 10px; border-bottom: 1px solid #f1f1f1; margin-bottom: 8px; border-radius: 4px; background: #fff; border-left: 3px solid var(--pnd); }
-        .item.done { border-left-color: var(--ok); opacity: 0.6; background: #f9fff9; }
-        .item.done span { text-decoration: line-through; color: #888; }
-        .st { font-size: 0.65rem; font-weight: bold; display: block; margin-top: 5px; text-transform: uppercase; }
-        .st-p { color: var(--pnd); }
-        .st-o { color: var(--ok); }
-        .loading { text-align: center; font-weight: bold; color: #666; padding: 50px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }
+        .card-header { background: var(--azul); color: white; padding: 12px; text-align: center; font-weight: bold; text-transform: uppercase; font-size: 0.9rem; }
+        .content { padding: 15px; min-height: 100px; }
+        .task { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; flex-direction: column; }
+        .task:last-child { border-bottom: none; }
+        .task-name { font-weight: 500; color: #333; margin-bottom: 5px; }
+        .status-badge { display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; font-weight: bold; width: fit-content; }
+        .status-pendiente { background: #fff3e0; color: var(--pendiente); border: 1px solid var(--pendiente); }
+        .status-listo { background: #e8f5e9; color: var(--listo); border: 1px solid var(--listo); text-decoration: none !important; }
+        .is-done { text-decoration: line-through; color: #95a5a6 !important; }
     </style>
 </head>
 <body>
 
-    <h1>📝 Seguimiento de Pendientes y Vendedores</h1>
-    <div id="loading" class="loading">Sincronizando con Google Sheets...</div>
-    <div class="grid" id="grid"></div>
+    <header>
+        <h1>📋 PANEL DE SEGUIMIENTO LUNES</h1>
+        <button class="btn-refresh" onclick="loadData()">🔄 Actualizar Datos</button>
+    </header>
+
+    <div id="loading" style="text-align:center; padding: 50px;">Cargando pendientes...</div>
+    <div class="grid" id="mainGrid"></div>
 
     <script>
-        // URL ACTUALIZADA
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTsePMc9flpt7FS7INMvVH4drQZAlpG96AqFOV7iQ0q2WO7g1H28MBM2SDkUN31gmY5agCDP4VoZrwx/pub?gid=0&single=true&output=csv';
 
-        function load() {
-            Papa.parse(csvUrl, {
+        // Mapeo exacto de tus columnas
+        const estructura = [
+            { t: "JUNTAS SEMANALES", s: "ESTATUS1" },
+            { t: "TULANCINGO", s: "ESTATUS2" },
+            { t: "CECI P.", s: "ESTATUS3" },
+            { t: "ENRIQUE R.", s: "ESTATUS4" },
+            { t: "OSCAR F.", s: "ESTATUS5" },
+            { t: "CELENE S.", s: "ESTATUS6" }
+        ];
+
+        function loadData() {
+            document.getElementById('mainGrid').innerHTML = "";
+            document.getElementById('loading').style.display = "block";
+            
+            // Añadimos un timestamp para evitar que el navegador guarde una copia vieja (cache)
+            const fetchUrl = csvUrl + "&cachebust=" + new Date().getTime();
+
+            Papa.parse(fetchUrl, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
                     render(results.data);
-                    document.getElementById('loading').style.display = 'none';
-                },
-                error: function() {
-                    document.getElementById('loading').innerHTML = "❌ Error de conexión. Revisa que el link esté publicado.";
+                    document.getElementById('loading').style.display = "none";
                 }
             });
         }
 
         function render(data) {
-            const container = document.getElementById('grid');
-            // Definimos exactamente las columnas de tu Excel
-            const grupos = [
-                { t: "JUNTAS SEMANAL", s: "ESESTATUS1", label: "🗓️ JUNTA SEMANAL" },
-                { t: "TULANCINGO", s: "ESTATUS2", label: "📍 TULANCINGO" },
-                { t: "CECI P.", s: "ESTATUS3", label: "👤 CECI P." },
-                { t: "ENRIQUE R.", s: "ESTATUS4", label: "👤 ENRIQUE R." },
-                { t: "OSCAR F.", s: "ESTATUS5", label: "👤 OSCAR F." },
-                { t: "CELENE S.", s: "ESTATUS6", label: "👤 CELENE S." }
-            ];
-
-            grupos.forEach(g => {
-                let html = `<div class="card"><h2>${g.label}</h2><div class="list">`;
-                let count = 0;
+            const grid = document.getElementById('mainGrid');
+            
+            estructura.forEach(col => {
+                let card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<div class="card-header">${col.t}</div>`;
+                
+                let content = document.createElement('div');
+                content.className = 'content';
+                
+                let hasData = false;
 
                 data.forEach(row => {
-                    // Limpiamos los nombres de las columnas por si traen espacios o caracteres raros
+                    // Limpiar nombres de columnas de espacios invisibles
                     const rowClean = {};
-                    Object.keys(row).forEach(k => rowClean[k.trim()] = row[k]);
+                    Object.keys(row).forEach(k => rowClean[k.trim().toUpperCase()] = row[k]);
 
-                    let tarea = rowClean[g.t];
-                    let status = rowClean[g.s] ? rowClean[g.s].toLowerCase().trim() : "";
+                    let tarea = rowClean[col.t.toUpperCase()];
+                    let rawStatus = rowClean[col.s.toUpperCase()] || "";
+                    let estatus = rawStatus.trim().toUpperCase();
 
-                    if (tarea && tarea.trim().length > 1) {
-                        count++;
-                        let isDone = (status === "cumplido" || status === "ok" || status === "hecho");
-                        html += `
-                            <div class="item ${isDone ? 'done' : ''}">
-                                <span>${tarea}</span>
-                                <b class="st ${isDone ? 'st-o' : 'st-p'}">${isDone ? '✓ Terminado' : '⏳ Pendiente'}</b>
-                            </div>`;
+                    if (tarea && tarea.trim().length > 0) {
+                        hasData = true;
+                        // Lista de palabras que significan "LISTO"
+                        const terminosExito = ["LISTO", "OK", "CUMPLIDO", "HECHO", "TERMINADO", "X"];
+                        let isDone = terminosExito.includes(estatus);
+
+                        content.innerHTML += `
+                            <div class="task">
+                                <span class="task-name ${isDone ? 'is-done' : ''}">${tarea}</span>
+                                <span class="status-badge ${isDone ? 'status-listo' : 'status-pendiente'}">
+                                    ${isDone ? '✓ ' + estatus : '⏳ PENDIENTE'}
+                                </span>
+                            </div>
+                        `;
                     }
                 });
 
-                if(count === 0) html += `<p style="color:#ccc; font-size:0.8rem; text-align:center;">Sin tareas registradas</p>`;
-                html += `</div></div>`;
-                container.innerHTML += html;
+                if (!hasData) content.innerHTML = `<p style="color:#ccc; text-align:center; font-size:0.8rem;">Sin pendientes</p>`;
+                
+                card.appendChild(content);
+                grid.appendChild(card);
             });
         }
 
-        window.onload = load;
+        window.onload = loadData;
     </script>
 </body>
 </html>
