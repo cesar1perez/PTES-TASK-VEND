@@ -2,103 +2,92 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Tablero de Gestión - Junta Semanal</title>
+    <title>Panel de Control - Junta Semanal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        :root {
-            --pendiente: #f39c12;
-            --cumplido: #27ae60;
-            --bg: #eef2f3;
-        }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 20px; }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; border-bottom: 2px solid #34495e; padding-bottom: 10px; }
-        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); border-top: 6px solid #3498db; }
-        .card h2 { color: #2980b9; font-size: 1.1rem; text-align: center; margin-top: 0; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .task { border-left: 4px solid var(--pendiente); padding: 10px; margin-bottom: 10px; background: #fffcf5; border-radius: 4px; transition: 0.3s; }
-        .task.done { border-left-color: var(--cumplido); background: #f0fff4; opacity: 0.7; }
-        .task-text { display: block; font-weight: 500; color: #333; }
-        .task.done .task-text { text-decoration: line-through; color: #7f8c8d; }
-        .tag { font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
-        .tag-p { background: #fff3cd; color: #856404; }
-        .tag-c { background: #d4edda; color: #155724; }
-        .error-msg { color: #c0392b; text-align: center; padding: 20px; display: none; }
+        :root { --pnd: #f39c12; --ok: #27ae60; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        h1 { text-align: center; color: #1a3a5a; font-size: 1.8rem; text-transform: uppercase; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; border-top: 5px solid #3498db; }
+        .card h2 { background: #f8f9fa; margin: 0; padding: 15px; font-size: 1rem; color: #2c3e50; border-bottom: 1px solid #eee; text-align: center; }
+        .list { padding: 15px; min-height: 100px; }
+        .item { padding: 10px; border-bottom: 1px solid #f1f1f1; margin-bottom: 8px; border-radius: 4px; background: #fff; border-left: 3px solid var(--pnd); }
+        .item.done { border-left-color: var(--ok); opacity: 0.6; background: #f9fff9; }
+        .item.done span { text-decoration: line-through; color: #888; }
+        .st { font-size: 0.65rem; font-weight: bold; display: block; margin-top: 5px; text-transform: uppercase; }
+        .st-p { color: var(--pnd); }
+        .st-o { color: var(--ok); }
+        .loading { text-align: center; font-weight: bold; color: #666; padding: 50px; }
     </style>
 </head>
 <body>
 
-    <h1>📊 BITÁCORA DE TAREAS Y JUNTA SEMANAL</h1>
-    <div id="error" class="error-msg">⚠️ No se pudo cargar el archivo. Verifica que el Google Sheet esté publicado correctamente.</div>
-    <div class="container" id="board"></div>
+    <h1>📝 Seguimiento de Pendientes y Vendedores</h1>
+    <div id="loading" class="loading">Sincronizando con Google Sheets...</div>
+    <div class="grid" id="grid"></div>
 
     <script>
-        // PARCHE 1: Nueva estructura de URL (Extraída de tu ID)
-        const sheetID = '1tsePMc9flpt7FS7INMvVH4drQZAlpG96AqFOV7iQ0q2WO7g1H28MBM2SDkUN31gmY5agCDP4VoZrwx';
-        const public_url = `https://docs.google.com/spreadsheets/d/${sheetID}/export?format=csv&gid=0`;
+        // URL ACTUALIZADA
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTsePMc9flpt7FS7INMvVH4drQZAlpG96AqFOV7iQ0q2WO7g1H28MBM2SDkUN31gmY5agCDP4VoZrwx/pub?gid=0&single=true&output=csv';
 
-        function init() {
-            Papa.parse(public_url, {
+        function load() {
+            Papa.parse(csvUrl, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    if(results.data.length > 0) {
-                        processData(results.data);
-                    } else {
-                        document.getElementById('error').style.display = 'block';
-                    }
+                    render(results.data);
+                    document.getElementById('loading').style.display = 'none';
                 },
                 error: function() {
-                    document.getElementById('error').style.display = 'block';
+                    document.getElementById('loading').innerHTML = "❌ Error de conexión. Revisa que el link esté publicado.";
                 }
             });
         }
 
-        function processData(data) {
-            const board = document.getElementById('board');
-            
-            // Mapeo de columnas con PARCHE de limpieza de nombres
-            const columnas = [
-                { id: "JUNTAS SEMANAL", status: "ESESTATUS1", titulo: "🗓️ Junta Semanal" },
-                { id: "TULANCINGO", status: "ESTATUS2", titulo: "📍 Tulancingo" },
-                { id: "CECI P.", status: "ESTATUS3", titulo: "👤 Ceci P." },
-                { id: "ENRIQUE R.", status: "ESTATUS4", titulo: "👤 Enrique R." },
-                { id: "OSCAR F.", status: "ESTATUS5", titulo: "👤 Oscar F." },
-                { id: "CELENE S.", status: "ESTATUS6", titulo: "👤 Celene S." }
+        function render(data) {
+            const container = document.getElementById('grid');
+            // Definimos exactamente las columnas de tu Excel
+            const grupos = [
+                { t: "JUNTAS SEMANAL", s: "ESESTATUS1", label: "🗓️ JUNTA SEMANAL" },
+                { t: "TULANCINGO", s: "ESTATUS2", label: "📍 TULANCINGO" },
+                { t: "CECI P.", s: "ESTATUS3", label: "👤 CECI P." },
+                { t: "ENRIQUE R.", s: "ESTATUS4", label: "👤 ENRIQUE R." },
+                { t: "OSCAR F.", s: "ESTATUS5", label: "👤 OSCAR F." },
+                { t: "CELENE S.", s: "ESTATUS6", label: "👤 CELENE S." }
             ];
 
-            columnas.forEach(col => {
-                let cardHTML = `<div class="card"><h2>${col.titulo}</h2>`;
-                let hasTasks = false;
+            grupos.forEach(g => {
+                let html = `<div class="card"><h2>${g.label}</h2><div class="list">`;
+                let count = 0;
 
-                data.forEach(fila => {
-                    // Limpieza de claves (Parche de robustez)
-                    const cleanRow = {};
-                    Object.keys(fila).forEach(key => cleanRow[key.trim()] = fila[key]);
+                data.forEach(row => {
+                    // Limpiamos los nombres de las columnas por si traen espacios o caracteres raros
+                    const rowClean = {};
+                    Object.keys(row).forEach(k => rowClean[k.trim()] = row[k]);
 
-                    let tarea = cleanRow[col.id];
-                    let estado = cleanRow[col.status] ? cleanRow[col.status].toLowerCase().trim() : "";
+                    let tarea = rowClean[g.t];
+                    let status = rowClean[g.s] ? rowClean[g.s].toLowerCase().trim() : "";
 
-                    if (tarea && tarea.length > 2) {
-                        hasTasks = true;
-                        let isDone = (estado === "cumplido" || estado === "hecho" || estado === "ok" || estado === "terminado");
-                        
-                        cardHTML += `
-                            <div class="task ${isDone ? 'done' : ''}">
-                                <span class="task-text">${tarea}</span>
-                                <span class="tag ${isDone ? 'tag-c' : 'tag-p'}">${isDone ? 'Cumplido' : 'Pendiente'}</span>
-                            </div>
-                        `;
+                    if (tarea && tarea.trim().length > 1) {
+                        count++;
+                        let isDone = (status === "cumplido" || status === "ok" || status === "hecho");
+                        html += `
+                            <div class="item ${isDone ? 'done' : ''}">
+                                <span>${tarea}</span>
+                                <b class="st ${isDone ? 'st-o' : 'st-p'}">${isDone ? '✓ Terminado' : '⏳ Pendiente'}</b>
+                            </div>`;
                     }
                 });
 
-                if (!hasTasks) cardHTML += `<p style="color:#bdc3c7; text-align:center; font-size:0.8rem;">Sin pendientes</p>`;
-                cardHTML += `</div>`;
-                board.innerHTML += cardHTML;
+                if(count === 0) html += `<p style="color:#ccc; font-size:0.8rem; text-align:center;">Sin tareas registradas</p>`;
+                html += `</div></div>`;
+                container.innerHTML += html;
             });
         }
 
-        window.onload = init;
+        window.onload = load;
     </script>
 </body>
 </html>
